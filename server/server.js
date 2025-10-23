@@ -28,6 +28,25 @@ const gameState = {
   startTime: Date.now()
 };
 
+// Helper function to generate random player color
+const generatePlayerColor = () => {
+  const colors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
+    '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
+    '#F8B739', '#52B788', '#E76F51', '#2A9D8F'
+  ];
+  return colors[Math.floor(Math.random() * colors.length)];
+};
+
+// Helper function to generate player name
+const generatePlayerName = (socketId) => {
+  const adjectives = ['Swift', 'Brave', 'Quick', 'Bold', 'Clever', 'Mighty', 'Lucky', 'Epic'];
+  const nouns = ['Runner', 'Jumper', 'Player', 'Hero', 'Champion', 'Ninja', 'Star', 'Pro'];
+  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  return `${adjective}${noun}${socketId.slice(-4)}`;
+};
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
@@ -37,24 +56,26 @@ io.on('connection', (socket) => {
 
   // Handle player joining
   socket.on('playerJoin', (playerData) => {
-    players.set(socket.id, {
+    const newPlayer = {
       id: socket.id,
-      ...playerData,
+      name: playerData.name || generatePlayerName(socket.id),
+      color: playerData.color || generatePlayerColor(),
+      position: 0,
+      score: 0,
+      isAlive: true,
       connectedAt: Date.now()
-    });
-
-    gameState.players[socket.id] = {
-      id: socket.id,
-      ...playerData
     };
 
-    // Notify all clients about new player
-    io.emit('playerJoined', {
-      id: socket.id,
-      ...playerData
-    });
+    players.set(socket.id, newPlayer);
+    gameState.players[socket.id] = newPlayer;
 
-    console.log(`Player ${socket.id} joined the game`);
+    // Send current players to the new player
+    socket.emit('currentPlayers', Array.from(players.values()));
+
+    // Notify all OTHER clients about new player
+    socket.broadcast.emit('playerJoined', newPlayer);
+
+    console.log(`Player ${newPlayer.name} (${socket.id}) joined the game`);
   });
 
   // Handle player movement updates
@@ -62,16 +83,19 @@ io.on('connection', (socket) => {
     if (players.has(socket.id)) {
       const player = players.get(socket.id);
       player.position = moveData.position;
+      player.isAlive = moveData.isAlive !== undefined ? moveData.isAlive : true;
 
       gameState.players[socket.id] = {
         ...gameState.players[socket.id],
-        position: moveData.position
+        position: moveData.position,
+        isAlive: player.isAlive
       };
 
       // Broadcast to other players
       socket.broadcast.emit('playerMoved', {
         id: socket.id,
-        position: moveData.position
+        position: moveData.position,
+        isAlive: player.isAlive
       });
     }
   });
@@ -100,12 +124,17 @@ io.on('connection', (socket) => {
   // Handle game over
   socket.on('gameOver', (gameData) => {
     if (players.has(socket.id)) {
+      const player = players.get(socket.id);
+      player.isAlive = false;
+      gameState.players[socket.id].isAlive = false;
+
       io.emit('playerGameOver', {
         id: socket.id,
+        name: player.name,
         finalScore: gameData.score
       });
 
-      console.log(`Player ${socket.id} game over - Score: ${gameData.score}`);
+      console.log(`Player ${player.name} (${socket.id}) game over - Score: ${gameData.score}`);
     }
   });
 

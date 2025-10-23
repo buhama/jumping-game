@@ -3,7 +3,7 @@
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  max-width: 900px;
+  max-width: 1100px;
   width: 100%;
 }
 
@@ -11,29 +11,106 @@
   font-size: 20px;
   font-weight: normal;
   color: #535353;
-  text-align: right;
-  width: 800px;
-  padding: 10px 0;
+  width: 100%;
+  padding: 10px 20px;
   font-family: monospace;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.score-info {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.player-name {
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.score-value {
+  color: #535353;
+}
+
+.connection-status {
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.connection-status.connected {
+  background: #d4edda;
+  color: #155724;
+}
+
+.connection-status.disconnected {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.game-layout {
+  display: flex;
+  gap: 20px;
+  width: 100%;
 }
 
 .game-canvas {
-  width: 800px;
-  height: 300px;
+  flex: 1;
+  min-width: 700px;
+  height: 400px;
   background: #f7f7f7;
   position: relative;
   overflow: hidden;
+  border: 2px solid #535353;
+  border-radius: 8px;
 }
 
 .player {
   width: 40px;
   height: 40px;
-  background-image: url('/character.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
   position: absolute;
   transition: bottom 0.02s linear;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.local-player {
+  background-color: #FF6B6B;
+  opacity: 1;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border: 2px solid #fff;
+}
+
+.other-player {
+  opacity: 0.6;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.other-player.dead {
+  opacity: 0.3;
+  filter: grayscale(50%);
+}
+
+.player-label {
+  position: absolute;
+  top: -20px;
+  font-size: 10px;
+  font-weight: bold;
+  color: #535353;
+  background: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-family: monospace;
 }
 
 .obstacle {
@@ -103,4 +180,133 @@
   color: #535353;
   text-align: center;
   font-family: monospace;
+}
+
+/* Leaderboard Styles */
+.leaderboard {
+  width: 280px;
+  background: white;
+  border: 2px solid #535353;
+  border-radius: 8px;
+  padding: 15px;
+  font-family: monospace;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.leaderboard h3 {
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  color: #535353;
+  text-align: center;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 10px;
+}
+
+.leaderboard-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #f7f7f7;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.leaderboard-item.local {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  font-weight: bold;
+}
+
+.leaderboard-item.dead {
+  opacity: 0.5;
+}
+
+.leaderboard-item .rank {
+  font-weight: bold;
+  color: #535353;
+  min-width: 30px;
+}
+
+.leaderboard-item .player-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.leaderboard-item .player-name-lb {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-item .player-score {
+  font-weight: bold;
+  color: #535353;
+}
+
+.leaderboard-item .status-dead {
+  font-size: 12px;
+}
+
+.players-count {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 2px solid #e0e0e0;
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+}
+
+/* Scrollbar styling for leaderboard */
+.leaderboard-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.leaderboard-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.leaderboard-list::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.leaderboard-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .game-layout {
+    flex-direction: column;
+  }
+
+  .leaderboard {
+    width: 100%;
+    max-height: 200px;
+  }
+
+  .game-canvas {
+    min-width: 100%;
+  }
+
+  .game-container {
+    max-width: 100%;
+    padding: 10px;
+  }
 }
