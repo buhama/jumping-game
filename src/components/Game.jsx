@@ -12,6 +12,8 @@ const Game = () => {
   const [isConnected, setIsConnected] = useState(socket.connected)
   const [localPlayerId, setLocalPlayerId] = useState(null)
   const [localPlayerData, setLocalPlayerData] = useState({ name: '', color: '#FF6B6B' })
+  const [gameStarted, setGameStarted] = useState(false)
+  const [inLobby, setInLobby] = useState(true)
 
   const gameRef = useRef(null)
   const obstacleIdRef = useRef(0)
@@ -52,6 +54,29 @@ const Game = () => {
     // Game state handlers
     socket.on('gameState', (state) => {
       console.log('Received game state:', state)
+      if (state.isStarted) {
+        setGameStarted(true)
+        setInLobby(false)
+      }
+    })
+
+    // Handle game started event
+    socket.on('gameStarted', (data) => {
+      console.log('Game started!', data)
+      setGameStarted(true)
+      setInLobby(false)
+    })
+
+    // Handle game reset event
+    socket.on('gameReset', () => {
+      console.log('Game reset!')
+      setGameStarted(false)
+      setInLobby(true)
+      setIsGameOver(false)
+      setScore(0)
+      setObstacles([])
+      setPlayerY(0)
+      setIsJumping(false)
     })
 
     // Receive all current players when joining
@@ -128,6 +153,8 @@ const Game = () => {
       socket.off('connect')
       socket.off('disconnect')
       socket.off('gameState')
+      socket.off('gameStarted')
+      socket.off('gameReset')
       socket.off('currentPlayers')
       socket.off('playerJoined')
       socket.off('playerLeft')
@@ -136,6 +163,16 @@ const Game = () => {
       socket.off('playerGameOver')
     }
   }, [])
+
+  // Start game function
+  const handleStartGame = () => {
+    socket.emit('startGame')
+  }
+
+  // Reset game function
+  const handleResetGame = () => {
+    socket.emit('resetGame')
+  }
 
   // Emit score updates to server
   useEffect(() => {
@@ -155,7 +192,7 @@ const Game = () => {
   }, [playerY, isConnected, isGameOver])
 
   useEffect(() => {
-    if (!isGameOver) {
+    if (!isGameOver && gameStarted) {
       const handleKeyPress = (e) => {
         if (e.code === 'Space' && !isJumping) {
           jump()
@@ -176,7 +213,7 @@ const Game = () => {
         window.removeEventListener('click', handleClick)
       }
     }
-  }, [isJumping, isGameOver])
+  }, [isJumping, isGameOver, gameStarted])
 
   const jump = () => {
     if (isGameOver) return
@@ -201,14 +238,14 @@ const Game = () => {
   }
 
   useEffect(() => {
-    if (!isGameOver) {
+    if (!isGameOver && gameStarted) {
       const obstacleInterval = setInterval(() => {
         createObstacle()
       }, 2000)
 
       return () => clearInterval(obstacleInterval)
     }
-  }, [isGameOver])
+  }, [isGameOver, gameStarted])
 
   const createObstacle = () => {
     const newObstacle = {
@@ -219,7 +256,7 @@ const Game = () => {
   }
 
   useEffect(() => {
-    if (!isGameOver) {
+    if (!isGameOver && gameStarted) {
       gameLoopRef.current = setInterval(() => {
         setObstacles(prev => {
           const updated = prev.map(obstacle => ({
@@ -233,20 +270,20 @@ const Game = () => {
 
       return () => clearInterval(gameLoopRef.current)
     }
-  }, [isGameOver])
+  }, [isGameOver, gameStarted])
 
   useEffect(() => {
-    if (!isGameOver) {
+    if (!isGameOver && gameStarted) {
       scoreIntervalRef.current = setInterval(() => {
         setScore(prev => prev + 1)
       }, 100)
 
       return () => clearInterval(scoreIntervalRef.current)
     }
-  }, [isGameOver])
+  }, [isGameOver, gameStarted])
 
   useEffect(() => {
-    if (!isGameOver) {
+    if (!isGameOver && gameStarted) {
       obstacles.forEach(obstacle => {
         if (checkCollision(obstacle)) {
           setIsGameOver(true)
@@ -257,7 +294,7 @@ const Game = () => {
         }
       })
     }
-  }, [obstacles, playerY, isGameOver, score, isConnected])
+  }, [obstacles, playerY, isGameOver, score, isConnected, gameStarted])
 
   const checkCollision = (obstacle) => {
     const playerLeft = PLAYER_X
@@ -279,11 +316,7 @@ const Game = () => {
   }
 
   const restartGame = () => {
-    setIsGameOver(false)
-    setScore(0)
-    setObstacles([])
-    setPlayerY(0)
-    setIsJumping(false)
+    handleResetGame()
   }
 
   // Get sorted leaderboard
@@ -303,6 +336,80 @@ const Game = () => {
       }))
     ]
     return allPlayers.sort((a, b) => (b.score || 0) - (a.score || 0))
+  }
+
+  // Get total player count (fixed to not count yourself twice)
+  const getTotalPlayers = () => {
+    return Object.keys(otherPlayers).length + 1
+  }
+
+  // Render lobby screen
+  if (inLobby && !gameStarted) {
+    return (
+      <div className="game-container">
+        <div className="lobby-container">
+          <h1 className="lobby-title">Pixel Runner - Multiplayer</h1>
+
+          <div className="lobby-info">
+            <div className="connection-badge">
+              <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
+                {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+              </span>
+            </div>
+
+            <div className="player-info-box">
+              <h3>You are:</h3>
+              <div className="your-player">
+                <div
+                  className="player-preview"
+                  style={{ borderColor: localPlayerData.color }}
+                />
+                <span className="your-name" style={{ color: localPlayerData.color }}>
+                  {localPlayerData.name || 'Connecting...'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="waiting-players">
+            <h3>Players in Lobby ({getTotalPlayers()})</h3>
+            <div className="player-list">
+              <div className="player-item local-player-item">
+                <span className="player-dot" style={{ backgroundColor: localPlayerData.color }} />
+                <span className="player-name">{localPlayerData.name || 'You'} (You)</span>
+              </div>
+              {Object.values(otherPlayers).map(player => (
+                <div key={player.id} className="player-item">
+                  <span className="player-dot" style={{ backgroundColor: player.color }} />
+                  <span className="player-name">{player.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="lobby-controls">
+            <button
+              className="start-game-button"
+              onClick={handleStartGame}
+              disabled={!isConnected}
+            >
+              Start Game
+            </button>
+            <p className="lobby-hint">Any player can start the game for everyone</p>
+          </div>
+
+          <div className="game-instructions">
+            <h4>How to Play:</h4>
+            <ul>
+              <li>Press SPACE or Click to jump</li>
+              <li>Avoid obstacles to survive</li>
+              <li>Compete for the highest score</li>
+              <li>See all players in real-time</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -329,13 +436,15 @@ const Game = () => {
               style={{
                 bottom: `${player.position || 0}px`,
                 left: `${PLAYER_X}px`,
-                backgroundColor: player.color,
                 opacity: player.isAlive === false ? 0.3 : 0.6,
-                zIndex: 1
+                zIndex: 1,
+                borderColor: player.color
               }}
               title={`${player.name} - Score: ${player.score || 0}`}
             >
-              <div className="player-label">{player.name}</div>
+              <div className="player-label" style={{ color: player.color }}>
+                {player.name}
+              </div>
             </div>
           ))}
 
@@ -345,11 +454,13 @@ const Game = () => {
             style={{
               bottom: `${playerY}px`,
               left: `${PLAYER_X}px`,
-              backgroundColor: localPlayerData.color,
-              zIndex: 10
+              zIndex: 10,
+              borderColor: localPlayerData.color
             }}
           >
-            <div className="player-label">{localPlayerData.name || 'You'}</div>
+            <div className="player-label" style={{ color: localPlayerData.color }}>
+              {localPlayerData.name || 'You'}
+            </div>
           </div>
 
           {obstacles.map(obstacle => (
@@ -399,7 +510,7 @@ const Game = () => {
             ))}
           </div>
           <div className="players-count">
-            {Object.keys(otherPlayers).length + 1} player(s) online
+            {getTotalPlayers()} player(s) online
           </div>
         </div>
       </div>

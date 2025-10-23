@@ -6,7 +6,7 @@ const app = express();
 const server = createServer(app);
 
 // Use environment variable for port, fallback to 3000 for local development
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Configure CORS for Socket.IO
 const io = new Server(server, {
@@ -25,7 +25,9 @@ const io = new Server(server, {
 const players = new Map();
 const gameState = {
   players: {},
-  startTime: Date.now()
+  isStarted: false,
+  startTime: null,
+  startedBy: null
 };
 
 // Helper function to generate random player color
@@ -52,7 +54,11 @@ io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
   // Send current game state to new player
-  socket.emit('gameState', gameState);
+  socket.emit('gameState', {
+    isStarted: gameState.isStarted,
+    startTime: gameState.startTime,
+    playersCount: players.size
+  });
 
   // Handle player joining
   socket.on('playerJoin', (playerData) => {
@@ -119,6 +125,40 @@ io.on('connection', (socket) => {
 
       console.log(`Player ${socket.id} score: ${scoreData.score}`);
     }
+  });
+
+  // Handle game start
+  socket.on('startGame', () => {
+    if (!gameState.isStarted) {
+      gameState.isStarted = true;
+      gameState.startTime = Date.now();
+      gameState.startedBy = socket.id;
+
+      // Notify all players that the game has started
+      io.emit('gameStarted', {
+        startTime: gameState.startTime,
+        startedBy: socket.id
+      });
+
+      console.log(`Game started by ${socket.id}`);
+    }
+  });
+
+  // Handle game reset (for when all players are dead or want to restart)
+  socket.on('resetGame', () => {
+    gameState.isStarted = false;
+    gameState.startTime = null;
+    gameState.startedBy = null;
+
+    // Reset all players
+    players.forEach((player) => {
+      player.score = 0;
+      player.isAlive = true;
+      player.position = 0;
+    });
+
+    io.emit('gameReset');
+    console.log(`Game reset by ${socket.id}`);
   });
 
   // Handle game over
