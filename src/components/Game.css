@@ -1,0 +1,103 @@
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 900px;
+  width: 100%;
+}
+
+.score-board {
+  font-size: 20px;
+  font-weight: normal;
+  color: #535353;
+  text-align: right;
+  width: 800px;
+  padding: 10px 0;
+  font-family: monospace;
+}
+
+.game-canvas {
+  width: 800px;
+  height: 300px;
+  background: #f7f7f7;
+  position: relative;
+  overflow: hidden;
+}
+
+.player {
+  width: 40px;
+  height: 40px;
+  background: #535353;
+  position: absolute;
+  transition: bottom 0.02s linear;
+}
+
+.obstacle {
+  width: 20px;
+  height: 40px;
+  background: #535353;
+  position: absolute;
+  transition: left 0.02s linear;
+}
+
+.ground {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #535353;
+}
+
+.game-over-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(247, 247, 247, 0.95);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  z-index: 10;
+}
+
+.game-over-text {
+  font-size: 36px;
+  font-weight: normal;
+  color: #535353;
+  font-family: monospace;
+}
+
+.final-score {
+  font-size: 20px;
+  color: #535353;
+  font-family: monospace;
+}
+
+.restart-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: normal;
+  background: #fff;
+  color: #535353;
+  border: 1px solid #535353;
+  cursor: pointer;
+  font-family: monospace;
+  margin-top: 10px;
+}
+
+.restart-button:hover {
+  background: #535353;
+  color: #fff;
+}
+
+.instructions {
+  font-size: 14px;
+  color: #535353;
+  text-align: center;
+  font-family: monospace;
+}
