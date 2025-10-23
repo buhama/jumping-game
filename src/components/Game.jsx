@@ -18,6 +18,8 @@ const Game = () => {
   const [playerName, setPlayerName] = useState('')
   const [hasJoined, setHasJoined] = useState(false)
   const [clouds, setClouds] = useState([])
+  const [gameSpeed, setGameSpeed] = useState(5)
+  const [obstacleSpawnInterval, setObstacleSpawnInterval] = useState(2000)
 
   const gameRef = useRef(null)
   const obstacleIdRef = useRef(0)
@@ -26,13 +28,13 @@ const Game = () => {
 
   const PLAYER_X = 50
   const PLAYER_SIZE = 40
-  const OBSTACLE_WIDTH = 20
-  const OBSTACLE_HEIGHT = 40
+  const BASE_OBSTACLE_WIDTH = 20
+  const BASE_OBSTACLE_HEIGHT = 40
   const GROUND_HEIGHT = 100
   const JUMP_HEIGHT = 150
   const JUMP_DURATION = 600
   const GRAVITY = 5
-  const GAME_SPEED = 5
+  const BASE_GAME_SPEED = 5
 
   // Generate random cloud properties
   const generateClouds = () => {
@@ -133,6 +135,8 @@ const Game = () => {
       setPlayerY(0)
       setIsJumping(false)
       setClouds([])
+      setGameSpeed(BASE_GAME_SPEED)
+      setObstacleSpawnInterval(2000)
     })
 
     // Handle individual player restart
@@ -145,6 +149,8 @@ const Game = () => {
         setObstacles([])
         setPlayerY(0)
         setIsJumping(false)
+        setGameSpeed(BASE_GAME_SPEED)
+        setObstacleSpawnInterval(2000)
       } else {
         // Another player restarted
         setOtherPlayers(prev => ({
@@ -169,6 +175,8 @@ const Game = () => {
         setObstacles([])
         setPlayerY(0)
         setIsJumping(false)
+        setGameSpeed(BASE_GAME_SPEED)
+        setObstacleSpawnInterval(2000)
       } else {
         // Another player restarted
         setOtherPlayers(prev => ({
@@ -346,16 +354,23 @@ const Game = () => {
     if (!isGameOver && gameStarted) {
       const obstacleInterval = setInterval(() => {
         createObstacle()
-      }, 2000)
+      }, obstacleSpawnInterval)
 
       return () => clearInterval(obstacleInterval)
     }
-  }, [isGameOver, gameStarted])
+  }, [isGameOver, gameStarted, obstacleSpawnInterval])
 
   const createObstacle = () => {
+    // Randomize obstacle properties
+    const heightVariation = Math.random() * 30 + 30 // Height between 30-60px
+    const widthVariation = Math.random() * 15 + 15 // Width between 15-30px
+    const gap = Math.random() > 0.7 // 30% chance of a gap (lower obstacle)
+
     const newObstacle = {
       id: obstacleIdRef.current++,
-      x: 800
+      x: 800,
+      width: widthVariation,
+      height: gap ? heightVariation * 0.6 : heightVariation // Gaps are shorter
     }
     setObstacles(prev => [...prev, newObstacle])
   }
@@ -366,8 +381,8 @@ const Game = () => {
         setObstacles(prev => {
           const updated = prev.map(obstacle => ({
             ...obstacle,
-            x: obstacle.x - GAME_SPEED
-          })).filter(obstacle => obstacle.x > -OBSTACLE_WIDTH)
+            x: obstacle.x - gameSpeed
+          })).filter(obstacle => obstacle.x > -50) // Account for variable widths
 
           return updated
         })
@@ -375,7 +390,20 @@ const Game = () => {
 
       return () => clearInterval(gameLoopRef.current)
     }
-  }, [isGameOver, gameStarted])
+  }, [isGameOver, gameStarted, gameSpeed])
+
+  // Difficulty scaling based on score
+  useEffect(() => {
+    if (!isGameOver && gameStarted) {
+      // Increase speed every 500 points, cap at 2x base speed
+      const newSpeed = Math.min(BASE_GAME_SPEED * 2, BASE_GAME_SPEED + Math.floor(score / 500) * 0.5)
+      setGameSpeed(newSpeed)
+
+      // Decrease spawn interval every 1000 points, minimum 800ms
+      const newInterval = Math.max(800, 2000 - Math.floor(score / 1000) * 200)
+      setObstacleSpawnInterval(newInterval)
+    }
+  }, [score, isGameOver, gameStarted])
 
   useEffect(() => {
     if (!isGameOver && gameStarted) {
@@ -408,8 +436,8 @@ const Game = () => {
     const playerBottom = GROUND_HEIGHT - playerY
 
     const obstacleLeft = obstacle.x
-    const obstacleRight = obstacle.x + OBSTACLE_WIDTH
-    const obstacleTop = GROUND_HEIGHT - OBSTACLE_HEIGHT
+    const obstacleRight = obstacle.x + obstacle.width
+    const obstacleTop = GROUND_HEIGHT - obstacle.height
     const obstacleBottom = GROUND_HEIGHT
 
     return (
@@ -629,7 +657,9 @@ const Game = () => {
               className="obstacle"
               style={{
                 left: `${obstacle.x}px`,
-                bottom: '0px'
+                bottom: '0px',
+                width: `${obstacle.width}px`,
+                height: `${obstacle.height}px`
               }}
             />
           ))}

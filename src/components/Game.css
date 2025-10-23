@@ -156,11 +156,10 @@
 }
 
 .obstacle {
-  width: 20px;
-  height: 40px;
   background: #535353;
   position: absolute;
   transition: left 0.02s linear;
+  z-index: 5;
 }
 
 .ground {
