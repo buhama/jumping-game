@@ -13,7 +13,10 @@ const Game = () => {
   const [localPlayerId, setLocalPlayerId] = useState(null)
   const [localPlayerData, setLocalPlayerData] = useState({ name: '', color: '#FF6B6B' })
   const [gameStarted, setGameStarted] = useState(false)
-  const [inLobby, setInLobby] = useState(true)
+  const [inLobby, setInLobby] = useState(false)
+  const [showNameInput, setShowNameInput] = useState(true)
+  const [playerName, setPlayerName] = useState('')
+  const [hasJoined, setHasJoined] = useState(false)
 
   const gameRef = useRef(null)
   const obstacleIdRef = useRef(0)
@@ -30,6 +33,38 @@ const Game = () => {
   const GRAVITY = 5
   const GAME_SPEED = 5
 
+  // Handle joining the game after name is set
+  const handleJoinGame = (name) => {
+    if (!name || name.trim() === '') {
+      alert('Please enter a name!')
+      return
+    }
+
+    const trimmedName = name.trim()
+    setPlayerName(trimmedName)
+    setShowNameInput(false)
+    setInLobby(true)
+
+    // Generate player color
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
+      '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
+      '#F8B739', '#52B788', '#E76F51', '#2A9D8F'
+    ]
+    const color = colors[Math.floor(Math.random() * colors.length)]
+
+    setLocalPlayerData({ name: trimmedName, color })
+
+    // Join game with player data
+    socket.emit('playerJoin', {
+      name: trimmedName,
+      color: color,
+      timestamp: Date.now()
+    })
+
+    setHasJoined(true)
+  }
+
   // Socket.IO connection and event handlers
   useEffect(() => {
     // Connection handlers
@@ -37,18 +72,18 @@ const Game = () => {
       setIsConnected(true)
       setLocalPlayerId(socket.id)
 
-      // Generate player data
-      const playerData = {
-        timestamp: Date.now()
+      // If we already have a name (reconnection), rejoin
+      if (hasJoined && playerName) {
+        socket.emit('playerJoin', {
+          name: playerName,
+          color: localPlayerData.color,
+          timestamp: Date.now()
+        })
       }
-
-      // Join game with player data
-      socket.emit('playerJoin', playerData)
     })
 
     socket.on('disconnect', () => {
       setIsConnected(false)
-      setLocalPlayerId(null)
     })
 
     // Game state handlers
@@ -81,19 +116,14 @@ const Game = () => {
 
     // Receive all current players when joining
     socket.on('currentPlayers', (players) => {
-      console.log('Current players:', players)
+      console.log('Current players received:', players)
       const playersMap = {}
       players.forEach(player => {
         if (player.id !== socket.id) {
           playersMap[player.id] = player
-        } else {
-          // This is us!
-          setLocalPlayerData({
-            name: player.name,
-            color: player.color
-          })
         }
       })
+      console.log('Setting other players:', playersMap)
       setOtherPlayers(playersMap)
     })
 
@@ -162,7 +192,7 @@ const Game = () => {
       socket.off('playerScoreUpdated')
       socket.off('playerGameOver')
     }
-  }, [])
+  }, [hasJoined, playerName, localPlayerData.color])
 
   // Start game function
   const handleStartGame = () => {
@@ -324,7 +354,7 @@ const Game = () => {
     const allPlayers = [
       {
         id: localPlayerId,
-        name: localPlayerData.name || 'You',
+        name: localPlayerData.name,
         score,
         isLocal: true,
         isAlive: !isGameOver,
@@ -341,6 +371,46 @@ const Game = () => {
   // Get total player count (fixed to not count yourself twice)
   const getTotalPlayers = () => {
     return Object.keys(otherPlayers).length + 1
+  }
+
+  // Render name input screen
+  if (showNameInput) {
+    return (
+      <div className="game-container">
+        <div className="name-input-container">
+          <h1 className="name-input-title">Pixel Runner</h1>
+          <p className="name-input-subtitle">Enter your name to join the game</p>
+
+          <form onSubmit={(e) => {
+            e.preventDefault()
+            handleJoinGame(playerName)
+          }} className="name-input-form">
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              placeholder="Your Name"
+              maxLength={15}
+              className="name-input-field"
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="name-input-button"
+              disabled={!playerName.trim()}
+            >
+              Join Lobby
+            </button>
+          </form>
+
+          <div className="name-input-tips">
+            <p>🎮 Multiplayer endless runner</p>
+            <p>🏆 Compete with friends in real-time</p>
+            <p>🚀 Jump over obstacles to survive</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Render lobby screen
@@ -365,7 +435,7 @@ const Game = () => {
                   style={{ borderColor: localPlayerData.color }}
                 />
                 <span className="your-name" style={{ color: localPlayerData.color }}>
-                  {localPlayerData.name || 'Connecting...'}
+                  {localPlayerData.name}
                 </span>
               </div>
             </div>
@@ -376,7 +446,7 @@ const Game = () => {
             <div className="player-list">
               <div className="player-item local-player-item">
                 <span className="player-dot" style={{ backgroundColor: localPlayerData.color }} />
-                <span className="player-name">{localPlayerData.name || 'You'} (You)</span>
+                <span className="player-name">{localPlayerData.name} (You)</span>
               </div>
               {Object.values(otherPlayers).map(player => (
                 <div key={player.id} className="player-item">
@@ -459,7 +529,7 @@ const Game = () => {
             }}
           >
             <div className="player-label" style={{ color: localPlayerData.color }}>
-              {localPlayerData.name || 'You'}
+              {localPlayerData.name}
             </div>
           </div>
 

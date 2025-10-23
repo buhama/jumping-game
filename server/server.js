@@ -62,6 +62,8 @@ io.on('connection', (socket) => {
 
   // Handle player joining
   socket.on('playerJoin', (playerData) => {
+    console.log(`Player attempting to join:`, playerData);
+
     const newPlayer = {
       id: socket.id,
       name: playerData.name || generatePlayerName(socket.id),
@@ -72,16 +74,19 @@ io.on('connection', (socket) => {
       connectedAt: Date.now()
     };
 
+    // Send EXISTING players to the new player (before adding them)
+    const existingPlayers = Array.from(players.values());
+    console.log(`Sending ${existingPlayers.length} existing players to new player ${newPlayer.name}`);
+    socket.emit('currentPlayers', existingPlayers);
+
+    // NOW add the new player
     players.set(socket.id, newPlayer);
     gameState.players[socket.id] = newPlayer;
-
-    // Send current players to the new player
-    socket.emit('currentPlayers', Array.from(players.values()));
 
     // Notify all OTHER clients about new player
     socket.broadcast.emit('playerJoined', newPlayer);
 
-    console.log(`Player ${newPlayer.name} (${socket.id}) joined the game`);
+    console.log(`Player ${newPlayer.name} (${socket.id}) joined the game. Total players: ${players.size}`);
   });
 
   // Handle player movement updates
