@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { socket } from '../socket'
 import './Game.css'
 
 const Game = () => {
@@ -7,6 +8,8 @@ const Game = () => {
   const [score, setScore] = useState(0)
   const [obstacles, setObstacles] = useState([])
   const [playerY, setPlayerY] = useState(0)
+  const [otherPlayers, setOtherPlayers] = useState({})
+  const [isConnected, setIsConnected] = useState(socket.connected)
 
   const gameRef = useRef(null)
   const obstacleIdRef = useRef(0)
@@ -22,6 +25,94 @@ const Game = () => {
   const JUMP_DURATION = 600
   const GRAVITY = 5
   const GAME_SPEED = 5
+
+  // Socket.IO connection and event handlers
+  useEffect(() => {
+    // Connection handlers
+    socket.on('connect', () => {
+      setIsConnected(true)
+      // Join game with player data
+      socket.emit('playerJoin', {
+        timestamp: Date.now()
+      })
+    })
+
+    socket.on('disconnect', () => {
+      setIsConnected(false)
+    })
+
+    // Game state handlers
+    socket.on('gameState', (state) => {
+      console.log('Received game state:', state)
+    })
+
+    socket.on('playerJoined', (player) => {
+      console.log('Player joined:', player.id)
+      setOtherPlayers(prev => ({
+        ...prev,
+        [player.id]: player
+      }))
+    })
+
+    socket.on('playerLeft', ({ id }) => {
+      console.log('Player left:', id)
+      setOtherPlayers(prev => {
+        const updated = { ...prev }
+        delete updated[id]
+        return updated
+      })
+    })
+
+    socket.on('playerMoved', ({ id, position }) => {
+      setOtherPlayers(prev => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          position
+        }
+      }))
+    })
+
+    socket.on('playerScoreUpdated', ({ id, score }) => {
+      setOtherPlayers(prev => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          score
+        }
+      }))
+    })
+
+    socket.on('playerGameOver', ({ id, finalScore }) => {
+      console.log(`Player ${id} game over - Score: ${finalScore}`)
+    })
+
+    // Cleanup
+    return () => {
+      socket.off('connect')
+      socket.off('disconnect')
+      socket.off('gameState')
+      socket.off('playerJoined')
+      socket.off('playerLeft')
+      socket.off('playerMoved')
+      socket.off('playerScoreUpdated')
+      socket.off('playerGameOver')
+    }
+  }, [])
+
+  // Emit score updates to server
+  useEffect(() => {
+    if (isConnected && score > 0) {
+      socket.emit('scoreUpdate', { score })
+    }
+  }, [score, isConnected])
+
+  // Emit player position updates
+  useEffect(() => {
+    if (isConnected) {
+      socket.emit('playerMove', { position: playerY })
+    }
+  }, [playerY, isConnected])
 
   useEffect(() => {
     if (!isGameOver) {
@@ -119,10 +210,14 @@ const Game = () => {
       obstacles.forEach(obstacle => {
         if (checkCollision(obstacle)) {
           setIsGameOver(true)
+          // Emit game over to server
+          if (isConnected) {
+            socket.emit('gameOver', { score })
+          }
         }
       })
     }
-  }, [obstacles, playerY, isGameOver])
+  }, [obstacles, playerY, isGameOver, score, isConnected])
 
   const checkCollision = (obstacle) => {
     const playerLeft = PLAYER_X
@@ -153,7 +248,17 @@ const Game = () => {
 
   return (
     <div className="game-container">
-      <div className="score-board">Score: {score}</div>
+      <div className="score-board">
+        Score: {score}
+        <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
+          {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+        </span>
+        {Object.keys(otherPlayers).length > 0 && (
+          <span className="players-online">
+            👥 {Object.keys(otherPlayers).length} player(s) online
+          </span>
+        )}
+      </div>
       <div className="game-canvas" ref={gameRef}>
         <div
           className="player"

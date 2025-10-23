@@ -28,7 +28,10 @@
 .player {
   width: 40px;
   height: 40px;
-  background: #535353;
+  background-image: url('/character.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   position: absolute;
   transition: bottom 0.02s linear;
 }
