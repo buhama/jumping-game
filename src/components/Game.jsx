@@ -17,6 +17,7 @@ const Game = () => {
   const [showNameInput, setShowNameInput] = useState(true)
   const [playerName, setPlayerName] = useState('')
   const [hasJoined, setHasJoined] = useState(false)
+  const [clouds, setClouds] = useState([])
 
   const gameRef = useRef(null)
   const obstacleIdRef = useRef(0)
@@ -32,6 +33,25 @@ const Game = () => {
   const JUMP_DURATION = 600
   const GRAVITY = 5
   const GAME_SPEED = 5
+
+  // Generate random cloud properties
+  const generateClouds = () => {
+    const numClouds = Math.floor(Math.random() * 3) + 4 // 4-6 clouds
+    return Array.from({ length: numClouds }, (_, i) => ({
+      id: i,
+      top: Math.random() * 150 + 20, // Random height between 20-170px
+      scale: Math.random() * 0.6 + 0.6, // Random scale 0.6-1.2
+      duration: Math.random() * 20 + 20, // Random duration 20-40s
+      delay: -Math.random() * 20, // Random delay 0-20s (negative to start mid-animation)
+    }))
+  }
+
+  // Initialize clouds when game starts
+  useEffect(() => {
+    if (gameStarted && clouds.length === 0) {
+      setClouds(generateClouds())
+    }
+  }, [gameStarted])
 
   // Handle joining the game after name is set
   const handleJoinGame = (name) => {
@@ -112,6 +132,31 @@ const Game = () => {
       setObstacles([])
       setPlayerY(0)
       setIsJumping(false)
+      setClouds([])
+    })
+
+    // Handle individual player restart
+    socket.on('playerRestarted', ({ id }) => {
+      console.log(`Player ${id} restarted`)
+      if (id === socket.id) {
+        // This is us restarting
+        setIsGameOver(false)
+        setScore(0)
+        setObstacles([])
+        setPlayerY(0)
+        setIsJumping(false)
+      } else {
+        // Another player restarted
+        setOtherPlayers(prev => ({
+          ...prev,
+          [id]: {
+            ...prev[id],
+            isAlive: true,
+            score: 0,
+            position: 0
+          }
+        }))
+      }
     })
 
     // Handle individual player restart
@@ -528,6 +573,20 @@ const Game = () => {
 
       <div className="game-layout">
         <div className={`game-canvas ${isGameOver ? 'spectating' : ''}`} ref={gameRef}>
+          {/* Pixelized clouds with randomized properties */}
+          {clouds.map(cloud => (
+            <div
+              key={cloud.id}
+              className="cloud"
+              style={{
+                top: `${cloud.top}px`,
+                transform: `scale(${cloud.scale})`,
+                animationDuration: `${cloud.duration}s`,
+                animationDelay: `${cloud.delay}s`,
+              }}
+            />
+          ))}
+
           {/* Render other players FIRST (lower z-index) */}
           {Object.entries(otherPlayers).map(([id, player]) => (
             <div

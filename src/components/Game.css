@@ -63,7 +63,7 @@
   flex: 1;
   min-width: 700px;
   height: 400px;
-  background: #f7f7f7;
+  background: linear-gradient(to bottom, #87CEEB 0%, #f7f7f7 70%);
   position: relative;
   overflow: hidden;
   border: 2px solid #535353;
@@ -74,6 +74,39 @@
 .game-canvas.spectating {
   filter: brightness(0.7) saturate(0.5);
   border-color: #ff4444;
+}
+
+/* Cloud animations */
+.cloud {
+  position: absolute;
+  background: white;
+  border-radius: 0;
+  box-shadow:
+    10px 0 0 white,
+    20px 0 0 white,
+    30px 0 0 white,
+    0 10px 0 white,
+    10px 10px 0 white,
+    20px 10px 0 white,
+    30px 10px 0 white,
+    40px 10px 0 white,
+    10px 20px 0 white,
+    20px 20px 0 white,
+    30px 20px 0 white;
+  width: 10px;
+  height: 10px;
+  animation: moveCloud linear infinite;
+  opacity: 0.9;
+  z-index: 0;
+}
+
+@keyframes moveCloud {
+  from {
+    left: 100%;
+  }
+  to {
+    left: -100px;
+  }
 }
 
 .player {
