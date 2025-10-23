@@ -102,7 +102,7 @@ const Game = () => {
       setInLobby(false)
     })
 
-    // Handle game reset event
+    // Handle game reset event (full reset to lobby)
     socket.on('gameReset', () => {
       console.log('Game reset!')
       setGameStarted(false)
@@ -112,6 +112,30 @@ const Game = () => {
       setObstacles([])
       setPlayerY(0)
       setIsJumping(false)
+    })
+
+    // Handle individual player restart
+    socket.on('playerRestarted', ({ id }) => {
+      console.log(`Player ${id} restarted`)
+      if (id === socket.id) {
+        // This is us restarting
+        setIsGameOver(false)
+        setScore(0)
+        setObstacles([])
+        setPlayerY(0)
+        setIsJumping(false)
+      } else {
+        // Another player restarted
+        setOtherPlayers(prev => ({
+          ...prev,
+          [id]: {
+            ...prev[id],
+            isAlive: true,
+            score: 0,
+            position: 0
+          }
+        }))
+      }
     })
 
     // Receive all current players when joining
@@ -185,6 +209,7 @@ const Game = () => {
       socket.off('gameState')
       socket.off('gameStarted')
       socket.off('gameReset')
+      socket.off('playerRestarted')
       socket.off('currentPlayers')
       socket.off('playerJoined')
       socket.off('playerLeft')
@@ -199,7 +224,12 @@ const Game = () => {
     socket.emit('startGame')
   }
 
-  // Reset game function
+  // Restart just this player (spectator mode to playing)
+  const handlePlayerRestart = () => {
+    socket.emit('playerRestart')
+  }
+
+  // Reset game function (return to lobby - for future use)
   const handleResetGame = () => {
     socket.emit('resetGame')
   }
@@ -346,7 +376,7 @@ const Game = () => {
   }
 
   const restartGame = () => {
-    handleResetGame()
+    handlePlayerRestart()
   }
 
   // Get sorted leaderboard
@@ -497,7 +527,7 @@ const Game = () => {
       </div>
 
       <div className="game-layout">
-        <div className="game-canvas" ref={gameRef}>
+        <div className={`game-canvas ${isGameOver ? 'spectating' : ''}`} ref={gameRef}>
           {/* Render other players FIRST (lower z-index) */}
           {Object.entries(otherPlayers).map(([id, player]) => (
             <div
@@ -520,12 +550,13 @@ const Game = () => {
 
           {/* Render local player LAST (highest z-index) */}
           <div
-            className="player local-player"
+            className={`player local-player ${isGameOver ? 'dead' : ''}`}
             style={{
               bottom: `${playerY}px`,
               left: `${PLAYER_X}px`,
               zIndex: 10,
-              borderColor: localPlayerData.color
+              borderColor: localPlayerData.color,
+              opacity: isGameOver ? 0.3 : 1
             }}
           >
             <div className="player-label" style={{ color: localPlayerData.color }}>
@@ -547,12 +578,23 @@ const Game = () => {
           <div className="ground" />
 
           {isGameOver && (
-            <div className="game-over-overlay">
-              <div className="game-over-text">Game Over!</div>
-              <div className="final-score">Final Score: {score}</div>
-              <button className="restart-button" onClick={restartGame}>
-                Restart
-              </button>
+            <div className="spectator-overlay">
+              <div className="spectator-panel">
+                <div className="spectator-badge">👻 Spectator Mode</div>
+                <div className="spectator-score">
+                  <div className="death-message">You Died!</div>
+                  <div className="your-score">Your Score: {score}</div>
+                </div>
+                <div className="spectator-stats">
+                  <p className="alive-count">
+                    {Object.values(otherPlayers).filter(p => p.isAlive !== false).length} player(s) still alive
+                  </p>
+                  <p className="spectator-hint">Watching other players...</p>
+                </div>
+                <button className="respawn-button" onClick={restartGame}>
+                  ↻ Respawn
+                </button>
+              </div>
             </div>
           )}
         </div>

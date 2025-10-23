@@ -64,6 +64,16 @@ io.on('connection', (socket) => {
   socket.on('playerJoin', (playerData) => {
     console.log(`Player attempting to join:`, playerData);
 
+    // Check if player already exists (prevent duplicates on restart)
+    if (players.has(socket.id)) {
+      console.log(`Player ${socket.id} already exists, updating instead`);
+      const existingPlayer = players.get(socket.id);
+      existingPlayer.position = 0;
+      existingPlayer.score = 0;
+      existingPlayer.isAlive = true;
+      return; // Don't create a new player
+    }
+
     const newPlayer = {
       id: socket.id,
       name: playerData.name || generatePlayerName(socket.id),
@@ -149,7 +159,23 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle game reset (for when all players are dead or want to restart)
+  // Handle individual player restart (spectator returning to life)
+  socket.on('playerRestart', () => {
+    if (players.has(socket.id)) {
+      const player = players.get(socket.id);
+      player.score = 0;
+      player.isAlive = true;
+      player.position = 0;
+
+      // Notify this player and all others that they've restarted
+      socket.emit('playerRestarted', { id: socket.id });
+      socket.broadcast.emit('playerRestarted', { id: socket.id });
+
+      console.log(`Player ${player.name} (${socket.id}) restarted`);
+    }
+  });
+
+  // Handle full game reset (for returning to lobby)
   socket.on('resetGame', () => {
     gameState.isStarted = false;
     gameState.startTime = null;
